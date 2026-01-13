@@ -1,42 +1,51 @@
 import { publishDeviceCommand } from "../mqtt/publisher/device_cmd.js";
+import redis from "../services/redis/index.js";
+import isoToTaipeiTime from "../utils/timeFormatter.js";
 
-async function setRelayStatus(req, res) {
-  const { cmd } = req.body;
+async function setDeviceStatus(req, res) {
+  const { status } = req.body;
   const { deviceId } = req.params; // ESP32-e90b65f4
 
-  if (!["relay_on", "relay_off"].includes(cmd)) {
-    return res.status(400).json({ message: "Invalid cmd" });
-  }
-
   try {
-    await publishDeviceCommand(deviceId, cmd);
+    if (status === "on") {
+      await publishDeviceCommand(deviceId, "relay_on");
+      await publishDeviceCommand(deviceId, "rf_unlock");
+    } else if (status === "off") {
+      await publishDeviceCommand(deviceId, "relay_off");
+      await publishDeviceCommand(deviceId, "rf_lock");
+    }
     return res
       .status(202)
-      .json({ message: `Set ${cmd} successful`, deviceId, cmd });
+      .json({ message: `Set device ${status} successful`, deviceId, status });
   } catch (e) {
     return res
       .status(500)
-      .json({ message: `Set ${cmd} failed`, error: e.message });
+      .json({ message: `Set device ${status} failed`, error: e.message });
   }
 }
 
-async function setRfStatus(req, res) {
-  const { cmd } = req.body;
-  const { deviceId } = req.params; // ESP32-e90b65f4
-
-  if (!["rf_lock", "rf_unlock"].includes(cmd)) {
-    return res.status(400).json({ message: "Invalid cmd" });
-  }
+async function getTelemetry(req, res) {
+  const { deviceId } = req.params;
+  const key = `device:${deviceId}:telemetry`;
 
   try {
-    await publishDeviceCommand(deviceId, cmd);
-    return res
-      .status(202)
-      .json({ message: `${deviceId} ${cmd} successful`, deviceId, cmd });
+    const telemetry = await redis.hgetall(key);
+
+    if (Object.keys(telemetry).length === 0) {
+      return res
+        .status(200)
+        .json({ message: "Get getTelemetry successful", telemetry: null });
+    }
+    telemetry.taipeiTime = isoToTaipeiTime(telemetry.timestamp);
+
+    return res.status(200).json({
+      message: "Get getTelemetry successful",
+      telemetry,
+    });
   } catch (e) {
     return res
       .status(500)
-      .json({ message: `${deviceId} ${cmd} failed`, error: e.message });
+      .json({ message: `Get getTelemetry failed`, error: e.message });
   }
 }
 
@@ -69,4 +78,4 @@ async function setRfStatus(req, res) {
 //   }
 // }
 
-export { setRelayStatus, setRfStatus };
+export { setDeviceStatus, getTelemetry };

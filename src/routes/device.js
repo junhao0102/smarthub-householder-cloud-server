@@ -1,14 +1,13 @@
 import express from "express";
 
-import { setRelayStatus,setRfStatus } from "../controller/device.js";
+import { setDeviceStatus, getTelemetry } from "../controller/device.js";
 
 const router = express.Router();
 
-// router.get("/:deviceId/relay", relayStatus);
+// 獲取電表資訊
+router.get("/:deviceId/telemetry", getTelemetry);
 
 // 設定裝置開關狀態
-router.post("/:deviceId/relay", setRelayStatus);
-
-router.post("/:deviceId/rf",setRfStatus)
+router.post("/:deviceId/device", setDeviceStatus);
 
 export default router;
